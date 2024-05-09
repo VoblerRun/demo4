@@ -1,0 +1,330 @@
+server:
+  servlet:
+    context-path: /service-desk
+  max-http-header-size: 10000000
+
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://192.168.30.89:5432/service_desk
+    username: sd_user
+    password: ENC(zI6S6Kf2ekEiYu3tgDari711mx5yDrlz)
+    hikari:
+      pool-name: ServiceDeskConnectionPool
+      leakDetectionThreshold: 60000
+      connection-timeout: 60000
+      minimum-idle: 5
+      maximum-pool-size: 20
+      idle-timeout: 10000
+      max-lifetime: 180000
+  jpa:
+    properties:
+      hibernate:
+        format_sql: false
+        enable_lazy_load_no_trans: true
+        jdbc:
+          lob:
+            non_contextual_creation: true
+    show-sql: false
+    hibernate:
+      ddl-auto: none
+  session:
+    store-type: jdbc #redis
+    jdbc:
+      initialize-schema: always
+  redis:
+    host: 192.168.30.89
+    port: 6379
+  rabbitmq:
+    host: 192.168.30.88
+    port: 5672
+    listener:
+      simple:
+        default-requeue-rejected: false
+  ldap:
+    urls: ldap://192.168.30.10:389
+    base: CN=Users,DC=itfbgroup,DC=local
+    additional-bases:
+      - OU=Kalashnikov,DC=itfbgroup,DC=local
+    username: portal_user@itfbgroup.local
+    password: ENC(/zNiHqh0HDUJi4PNUYWraCExviVP5EwE)
+    user-search-filter: (&(objectClass=user)(sAMAccountName={0}))
+    user-uid: sAMAccountName
+    referral: ignore
+    attrs:
+      - sAMAccountName
+      - mail
+      - displayName
+      - memberOf
+      - userAccountControl
+  liquibase:
+    change-log: classpath:db/changelog/db.changelog-master.xml
+  application:
+    name: ServiceDesk
+    version: "@version@"
+  jackson:
+    serialization:
+      WRITE_DATES_AS_TIMESTAMPS: false
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+  cache:
+    type: redis
+    local:
+      ttl: 12
+      duration-of-caffeine-cache-in-minutes: 1
+  main:
+    allow-circular-references: true
+    banner-mode: "off"
+
+services:
+  audit:
+    url: http://192.168.30.88:8080/audit-service/entries
+  remedy:
+    url: http://192.168.30.88:8080/mock-data-service/DataService.svc
+    get-status:
+      url: ${services.remedy.url}/RemedyRequest
+      schedule:
+        rate: 600000
+      batch-size: 10
+    save-request:
+      url: ${services.remedy.url}/RemedyRequest
+      requestFormUrl: http://192.168.30.88/requests/
+  avatar:
+    url: https://www.tinygraphs.com/squares/{login}?theme=heatwave&numcolors=6&size=128
+  passport:
+    url: http://192.168.30.88:8080/mock-data-service/DataService.svc/getUserDocumentInfo
+  snils:
+    url: http://192.168.30.88:8080/mock-data-service/DataService.svc/getSSN
+  divCurator:
+    url: http://192.168.30.88:8080/mock-data-service/DataService.svc/getDivCurator
+  address:
+    url: http://192.168.30.88:8080/delivery-service/fias/mdm_suggest_address #url: https://10.96.66.179/DataService.svc/getMdmSuggestAddress
+  addressFull:
+    url: http://192.168.30.88:8080/delivery-service/fias/getMdmSuggestAddressFull
+  filialHrCurator:
+    url: http://192.168.30.88:8080/mock-data-service/getFilialHrCurators
+  boss:
+    url: http://192.168.30.88:8080/mock-data-service/DataService.svc/updateManningStatus
+
+process-engine:
+  check-uid: true
+  job-executor-activate: false #true В банке разработка ведется на т1, т3. При запуске другого back, подключенного к той же БД возможно исполнение camunda-job неактуальной версией back.
+  job-executor-deployment-aware: false
+
+verifySSL: false
+
+sso:
+  ip-white-list: 10.96.232.11,10.96.232.12,10.96.232.13,10.96.233.252,10.96.233.253,10.96.233.254
+  kerberos:
+    enable: false
+    service-principal:
+    keytab-path:
+    krb-conf-path:
+    debug: true
+
+test-auth:
+  enable: false
+  default-password: ENC(1X0dV2K6M/5VroNDYzv4TelDp8S+Tmpq)
+
+initialization:
+  roles:
+    ADMIN:
+      name: Администратор
+      authorities:
+        - ROLE_CREATE
+        - ROLE_EDIT
+        - ROLE_DELETE
+        - USER_CREATE
+        - USER_EDIT
+        - USER_DELETE
+        - USER_ACTIVATE
+        - USER_DEACTIVATE
+        - USER_LIST
+        - USER_GROUP_CREATE
+        - USER_GROUP_EDIT
+        - USER_GROUP_DELETE
+        - SERVICE_CREATE
+        - SERVICE_EDIT
+        - SERVICE_DELETE
+        - SERVICE_FORM_CREATE
+        - SERVICE_FORM_EDIT
+        - SERVICE_FORM_DELETE
+        - PROCESS_DEFINITION_CREATE
+        - PROCESS_DEFINITION_EDIT
+        - PROCESS_DEFINITION_DELETE
+        - ROLE_USERS_EDIT
+      groups:
+        - fullName: CN=admin,CN=Users,DC=itfbgroup,DC=local
+          shortName: admin
+    APPROVER:
+      name: Согласующий
+      authorities:
+        - REQUEST_APPROVE
+      groups:
+        - fullName: CN=Approver,CN=Users,DC=itfbgroup,DC=local
+          shortName: Approver
+
+notification:
+  requestFormUrl: http://192.168.30.88/request/
+  taskFormUrl: http://192.168.30.88/tasks/
+  adminTasksFormUrl: http://192.168.30.88/admin/tasks/
+  frontUrl: http://192.168.30.88/
+
+feedback:
+  alertPeriod: 3
+  recipients:
+    - k.chikarev@itfbgroup.ru
+
+logging:
+  level:
+    ru:
+      itfb:
+        gzpb:
+          servicedesk:
+            component:
+              ScheduledJobs: DEBUG
+            listener:
+              UserTaskEventListeners: DEBUG
+              UserTaskExecutionListener: DEBUG
+            repository:
+              ServiceRequestFilterParamsRepository: DEBUG
+            controller:
+              v2:
+                UserNotificationController: DEBUG
+            service:
+              bpm:
+                ProcessEngineService: DEBUG
+                task:
+                  TaskQueryService: DEBUG
+              ApprovalChainService: DEBUG
+              DepartmentServiceImpl: DEBUG
+              DismissalService: DEBUG
+              request:
+                ServiceRequestService: DEBUG
+              protocol:
+                ProtocolService: DEBUG
+              integration:
+                DataIntegrationService: DEBUG
+                AsupIntegrationService: INFO
+                TessaIntegrationService: DEBUG
+                EntertainmentFunctionIntegrationService: DEBUG
+                AhdIntegrationService: DEBUG
+                DismissalIntegrationService: DEBUG
+                KdoTabelIntegrationService: DEBUG
+                BusinessTripIntegrationService: DEBUG
+                GpbIntegrationService: DEBUG
+              delivery:
+                DeliveryServiceIntegration: DEBUG
+              notification:
+                NotificationService: DEBUG
+                UserNotificationService: DEBUG
+              report:
+                ServiceRequestGenerateAttachmentService: DEBUG
+    org:
+      hibernate:
+        type: INFO #TRACE
+      postgresql: INFO #TRACE
+      springframework:
+        orm:
+          jpa: INFO #DEBUG
+        transaction: INFO #DEBUG
+        security:
+          ldap: INFO #DEBUG
+        web:
+          filter:
+            CommonsRequestLoggingFilter: INFO
+      camunda:
+        bpm:
+          engine:
+            persistence: INFO #DEBUG
+            impl.persistence.entity: INFO #DEBUG
+            impl.history.event: INFO #DEBUG
+            history: INFO #DEBUG
+    com:
+      zaxxer:
+        hikari: INFO #TRACE
+        hikari.HikariConfig: INFO #DEBUG
+
+feign:
+  logging-level: FULL
+  httpclient:
+    max-connections: 1000
+    maxConnections-per-route: 1000
+    disable-ssl-validation: true
+    connection-timeout: 5000
+
+app:
+  integration:
+    base-url: http://192.168.30.88:8080/mock-data-service
+    feign-client:
+      read-timeout: 60000
+      connect-timeout: 10000
+    asupservice:
+      iframe-base-url: http://192.168.30.88:8080/mock-data-service/asup
+      url: ${app.integration.base-url}/DataService.svc/SM
+      externalUrl: ${app.integration.asupservice.iframe-base-url}/sm/ess.do
+      iframeViewUrl: ${app.integration.asupservice.iframe-base-url}/np/request/[interactionID]?form=only
+      iframeExecutionViewUrl: ${app.integration.asupservice.iframe-base-url}/np_dev/servicedesk?form=only
+      iframeRolesUrl: ${app.integration.asupservice.iframe-base-url}/suo-19-9-new/np/managingroupssearch?form=only
+      iframeUserRolesUrl: ${app.integration.asupservice.iframe-base-url}/suo-19-9-new/np/managingroupstable?form=only
+      iframeAccess: https://s-its-t2ap;https://kip
+      iframeUnsbscUrl: ${app.integration.asupservice.iframe-base-url}/suo-19-5-notification-screen-with-data/np/notifications-screen?form=only
+    dataservice:
+      url: ${app.integration.base-url}/DataService.svc
+    crmservice:
+      url: https://10.178.160.62/api/crm
+    tessaservice:
+      url: ${app.integration.base-url}/api
+    deliveryservice:
+      url: http://192.168.30.88:8080/delivery-service
+      fileAwatingSeconds: 5
+      chunkMaxSize: 9
+      updateStatus:
+        schedule:
+          rate: 900000
+      post-update-status:
+        schedule:
+          rate: 3600000
+      files-download:
+        schedule:
+          rate: 900000
+      russian-post-read-timeout: 80000
+    dynamicList:
+      url: ${app.integration.base-url}/DataService.svc
+      path: /getDynamicListByCode
+    converter:
+      url: http://192.168.30.88:8080/converter-service
+    templanator:
+      url: http://192.168.30.88:8080/transform-service
+    pdfrenderservice:
+      url: http://192.168.30.88:8080/render-service
+      read-timeout: 300000
+    vdl:
+      url: ${app.integration.base-url}/api/ahd
+    vacationservice:
+      url: ${app.integration.base-url}/DataService.svc/Holiday
+    cuz:
+      url: ${app.integration.base-url}/api/cuz
+    universalData:
+      url: ${app.integration.base-url}/DataService.svc/getdata
+    gpb:
+      url: ${app.integration.base-url}/DataService.svc/aero
+    salary:
+      url: ${app.integration.base-url}/api/salary
+    sm:
+      url: ${app.integration.base-url}/api/sm
+    purchase:
+      url: ${app.integration.base-url}/DataService.svc/zakupki
+
+  top-management-department-id: 77c44051-3f96-4f5c-84fe-67ecb18fdd6f
+  itAssetsLink: https://spp.int.gazprombank.ru/np/itassets
+  link: localhost:8080/service-desk/requests/
+  link-iframe-spp: https://s-smr-t2as.int.gazprombank.ru/suo-19-4/np/storemap
+  link-detailed-desc: https://s-smr-t2as.int.gazprombank.ru/suo-19-2/np/detailedDesc
+
+department-hierarchy-reference:
+  roots: 772c62051-3f96-4f5c-84fe-67ecb18fdd6f, 9c25d2a1-3026-4f38-b5cf-6c5912467c4d, 54c62051-3f96-4f5c-84fe-67ecb18fdd6f
+
+chief-department-id: 4ed057b5-8de5-4fe5-9121-7d2dd621f037
